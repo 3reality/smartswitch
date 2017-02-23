@@ -12,7 +12,8 @@
 #include "driver/gpio.h"
 #include "driver/key.h"
 
-#define LONG_PRESS_TIME  5000 //ms
+#define LONG_PRESS_TIME  3000 //ms
+static bool reverse = 0;
 
 LOCAL void key_intr_handler(struct keys_param *keys);
 
@@ -72,7 +73,8 @@ key_init(struct keys_param *keys)
         pGPIOConfig->GPIO_IntrType = GPIO_PIN_INTR_NEGEDGE;
         pGPIOConfig->GPIO_Pullup = GPIO_PullUp_EN;
         pGPIOConfig->GPIO_Mode = GPIO_Mode_Input;
-        pGPIOConfig->GPIO_Pin = (1 << keys->single_key[i]->gpio_id);//this is GPIO_Pin_13 for switch
+        pGPIOConfig->GPIO_Pin = (1 << keys->single_key[i]->gpio_id);//this is GPIO_Pin_0
+
         gpio_config(pGPIOConfig);
     }
     //enable gpio iterrupt
@@ -89,13 +91,15 @@ LOCAL void
 key_5s_cb(struct single_key_param *single_key)
 {
     os_timer_disarm(&single_key->key_5s);
-   //check this gpio pin state
-    if (0 == GPIO_INPUT_GET(GPIO_ID_PIN(single_key->gpio_id))) {
-        //this gpio has been in low state for 5s, then call long_press function
-        if (single_key->long_press) {
-            single_key->long_press();
-        }
-    }
+
+    //turn off motor
+    GPIO_OUTPUT_SET(GPIO_ID_PIN(12), 1);
+    GPIO_OUTPUT_SET(GPIO_ID_PIN(13), 1);
+    GPIO_OUTPUT_SET(GPIO_ID_PIN(4), 1);
+    GPIO_OUTPUT_SET(GPIO_ID_PIN(14), 1);
+
+    //enable this gpio pin interrupt
+    gpio_pin_intr_state_set(GPIO_ID_PIN(single_key->gpio_id), GPIO_PIN_INTR_NEGEDGE);
 }
 
 /******************************************************************************
@@ -134,7 +138,7 @@ key_intr_handler(struct keys_param *keys)
 {
     uint8 i;
     uint32 gpio_status = GPIO_REG_READ(GPIO_STATUS_ADDRESS);
-    
+
     for (i = 0; i < keys->key_num; i++) {
         if (gpio_status & BIT(keys->single_key[i]->gpio_id)) {
             
@@ -143,22 +147,33 @@ key_intr_handler(struct keys_param *keys)
             //clear interrupt status
             GPIO_REG_WRITE(GPIO_STATUS_W1TC_ADDRESS, gpio_status & BIT(keys->single_key[i]->gpio_id));
 
-            if (keys->single_key[i]->key_level == 1) {
-                // 5s, restart & enter softap mode
-                os_timer_disarm(&keys->single_key[i]->key_5s);
-                os_timer_setfn(&keys->single_key[i]->key_5s, (os_timer_func_t *)key_5s_cb, keys->single_key[i]);
-                os_timer_arm(&keys->single_key[i]->key_5s, LONG_PRESS_TIME, 0);
-                keys->single_key[i]->key_level = 0;
-                
-                //enable this gpio pin interrupt
-                gpio_pin_intr_state_set(GPIO_ID_PIN(keys->single_key[i]->gpio_id), GPIO_PIN_INTR_POSEDGE);
-            } else {
-            
-                // 50ms, check if this is a real key up
-                os_timer_disarm(&keys->single_key[i]->key_50ms);
-                os_timer_setfn(&keys->single_key[i]->key_50ms, (os_timer_func_t *)key_50ms_cb, keys->single_key[i]);
-                os_timer_arm(&keys->single_key[i]->key_50ms, 50, 0);
+            //turn off motor first 
+            GPIO_OUTPUT_SET(GPIO_ID_PIN(12), 1);
+            GPIO_OUTPUT_SET(GPIO_ID_PIN(13), 1);
+            GPIO_OUTPUT_SET(GPIO_ID_PIN(4), 1);
+            GPIO_OUTPUT_SET(GPIO_ID_PIN(14), 1);
+
+            if (reverse)
+           {
+                //reverse 
+                GPIO_OUTPUT_SET(GPIO_ID_PIN(12), 1);
+                GPIO_OUTPUT_SET(GPIO_ID_PIN(13), 0);
+                GPIO_OUTPUT_SET(GPIO_ID_PIN(4), 1);
+                GPIO_OUTPUT_SET(GPIO_ID_PIN(14), 0);
+                reverse = 0;
             }
+            else{
+                //forward
+                GPIO_OUTPUT_SET(GPIO_ID_PIN(12), 0);
+                GPIO_OUTPUT_SET(GPIO_ID_PIN(13), 1);
+                GPIO_OUTPUT_SET(GPIO_ID_PIN(4), 0);
+                GPIO_OUTPUT_SET(GPIO_ID_PIN(14), 1);
+                reverse = 1;
+            }
+            //run 5s for demo purpose, borrow the key_5s structure for the demo
+            os_timer_disarm(&keys->single_key[i]->key_5s);
+            os_timer_setfn(&keys->single_key[i]->key_5s, (os_timer_func_t *)key_5s_cb, keys->single_key[i]);
+            os_timer_arm(&keys->single_key[i]->key_5s, LONG_PRESS_TIME, 0);
         }
     }
 }

@@ -35,7 +35,9 @@ LOCAL xQueueHandle QueueStop = NULL;
 #define UDF_SERVER_PORT     1025
 
 const char *device_find_request = "Are You Espressif IOT Smart Device?";
-#if PLUG_DEVICE
+#if MOTOR_DEVICE
+const char *device_find_response_ok = "I'm Motor.";
+#elif PLUG_DEVICE
 const char *device_find_response_ok = "I'm Plug.";
 #elif LIGHT_DEVICE
 const char *device_find_response_ok = "I'm Light.";

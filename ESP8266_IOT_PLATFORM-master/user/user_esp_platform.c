@@ -47,6 +47,13 @@
 #define FIRST_FRAME     "{\"nonce\": %d, \"path\": \"/v1/device/identify\", \"method\": \"GET\",\"meta\": {\"Authorization\": \"token %s\"}}\n"
 #endif
 
+#if MOTOR_DEVICE
+#include "user_motor.h"
+
+#define RESPONSE_FRAME  "{\"status\": 200, \"datapoint\": {\"x\": %d}, \"nonce\": %d, \"deliver_to_device\": true}\n"
+#define FIRST_FRAME     "{\"nonce\": %d, \"path\": \"/v1/device/identify\", \"method\": \"GET\",\"meta\": {\"Authorization\": \"token %s\"}}\n"
+#endif
+
 #if LIGHT_DEVICE
 #include "user_light.h"
 
@@ -54,7 +61,7 @@
 #define FIRST_FRAME     "{\"nonce\": %d, \"path\": \"/v1/device/identify\", \"method\": \"GET\",\"meta\": {\"Authorization\": \"token %s\"}}\n"
 #endif
 
-#if PLUG_DEVICE || LIGHT_DEVICE
+#if MOTOR_DEVICE || PLUG_DEVICE || LIGHT_DEVICE
 #define BEACON_FRAME    "{\"path\": \"/v1/ping/\", \"method\": \"POST\",\"meta\": {\"Authorization\": \"token %s\"}}\n"
 #define RPC_RESPONSE_FRAME  "{\"status\": 200, \"nonce\": %d, \"deliver_to_device\": true}\n"
 #define TIMER_FRAME     "{\"body\": {}, \"get\":{\"is_humanize_format_simple\":\"true\"},\"meta\": {\"Authorization\": \"Token %s\"},\"path\": \"/v1/device/timers/\",\"post\":{},\"method\": \"GET\"}\n"
@@ -115,7 +122,7 @@ LOCAL os_timer_t client_timer;
  *                pdata --
  * Returns      : none
 *******************************************************************************/
-#if (PLUG_DEVICE || SENSOR_DEVICE)
+#if (MOTOR_DEVICE || PLUG_DEVICE || SENSOR_DEVICE)
 
 void  
 smartconfig_done(sc_status status, void *pdata)
@@ -123,15 +130,15 @@ smartconfig_done(sc_status status, void *pdata)
     switch(status) {
         case SC_STATUS_WAIT:
             printf("SC_STATUS_WAIT\n");
-            user_link_led_output(LED_1HZ);
+            //user_link_led_output(LED_1HZ);
             break;
         case SC_STATUS_FIND_CHANNEL:
             printf("SC_STATUS_FIND_CHANNEL\n");
-            user_link_led_output(LED_1HZ);
+            //user_link_led_output(LED_1HZ);
             break;
         case SC_STATUS_GETTING_SSID_PSWD:
             printf("SC_STATUS_GETTING_SSID_PSWD\n");
-            user_link_led_output(LED_20HZ);
+            //user_link_led_output(LED_20HZ);
             
             sc_type *type = pdata;
             if (*type == SC_TYPE_ESPTOUCH) {
@@ -157,7 +164,7 @@ smartconfig_done(sc_status status, void *pdata)
             }
             smartconfig_stop();
             
-            user_link_led_output(LED_OFF);
+            //user_link_led_output(LED_OFF);
             device_status = DEVICE_GOT_IP;
             break;
     }
@@ -1557,7 +1564,9 @@ user_esp_platform_maintainer(void *pvParameters)
 
     user_esp_platform_param_recover();
 
-#if PLUG_DEVICE
+#if MOTOR_DEVICE
+    user_motor_init();
+#elif PLUG_DEVICE
     user_plug_init();
 #elif LIGHT_DEVICE
 	user_light_init();

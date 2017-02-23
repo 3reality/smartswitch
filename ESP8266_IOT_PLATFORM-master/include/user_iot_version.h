@@ -14,6 +14,8 @@
 
 #if LIGHT_DEVICE
 #define device_type       45772
+#elif MOTOR_DEVICE
+#define device_type       23701
 #elif PLUG_DEVICE
 #define device_type       23701
 #elif SENSOR_DEVICE
